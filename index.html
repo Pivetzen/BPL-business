@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal do Professor - Seguro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .progress-bar { transition: width 1s ease-in-out; }
+        .dot { transition: all 0.3s ease-in-out; }
+        input:checked ~ .dot { transform: translateX(100%); background-color: #ef4444; }
+        input:checked ~ .block { background-color: #fee2e2; border-color: #fca5a5; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 md:p-8 font-sans">
+
+    <!-- TELA DE AUTENTICAÇÃO -->
+    <div id="auth-container" class="max-w-md mx-auto mt-16 bg-white p-8 rounded-2xl shadow-sm border border-gray-200">
+        <div class="text-center mb-6">
+            <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight">Portal de Reforço</h1>
+            <p id="auth-subtitle" class="text-slate-500 text-sm font-medium mt-1">Faça login para acessar sua base</p>
+        </div>
+
+        <!-- Formulário de Login -->
+        <div id="form-login" class="space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">E-mail</label>
+                <input type="email" id="login-email" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" placeholder="seu@email.com">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Senha</label>
+                <input type="password" id="login-pass" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" placeholder="••••••••">
+            </div>
+            <button onclick="fazerLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-3 rounded-xl transition-all shadow-sm">Entrar</button>
+            <p class="text-center text-xs text-slate-500 mt-4">
+                Não tem uma conta? <a href="#" onclick="alternarTelaAuth('cadastro')" class="text-blue-600 font-bold hover:underline">Solicitar Cadastro</a>
+            </p>
+        </div>
+
+        <!-- Formulário de Cadastro -->
+        <div id="form-cadastro" class="space-y-4 hidden">
+            <div>
+                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">E-mail</label>
+                <input type="email" id="cad-email" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" placeholder="seu@email.com">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Senha (Mínimo 6 dígitos)</label>
+                <input type="password" id="cad-pass" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" placeholder="••••••••">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Aluno Vinculado (Sua Base)</label>
+                <input type="text" id="cad-aluno" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" placeholder="Nome exato do aluno">
+            </div>
+            <button onclick="solicitarCadastro()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold text-sm py-3 rounded-xl transition-all shadow-sm">Enviar Solicitação</button>
+            <p class="text-center text-xs text-slate-500 mt-4">
+                Já tem uma conta? <a href="#" onclick="alternarTelaAuth('login')" class="text-blue-600 font-bold hover:underline">Fazer Login</a>
+            </p>
+        </div>
+        
+        <div id="auth-mensagem" class="mt-4 text-center text-xs font-bold"></div>
+    </div>
+
+    <!-- APLICAÇÃO PRINCIPAL -->
+    <div id="app-container" class="max-w-5xl mx-auto hidden">
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+            <div>
+                <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">Portal de Reforço</h1>
+                <p id="info-usuario-logado" class="text-slate-500 text-sm font-medium">Gestão Pedagógica e Financeira</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
+                    <label class="mr-3 font-semibold text-slate-600 uppercase text-[10px] tracking-wider">Aluno:</label>
+                    <select id="select-aluno" onchange="renderizarDados()" class="bg-transparent border-none focus:ring-0 text-blue-600 font-bold cursor-pointer text-lg outline-none">
+                        <option value="">Carregando...</option>
+                    </select>
+                </div>
+                <button onclick="fazerLogout()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs uppercase px-3 py-2 rounded-xl transition-all">Sair</button>
+            </div>
+        </div>
+
+        <!-- PAINEL DO ADMINISTRADOR -->
+        <div id="painel-admin" class="hidden mb-8 bg-amber-50 p-6 rounded-2xl border border-amber-200">
+            <h2 class="text-lg font-bold text-amber-800 mb-2">Painel do Administrador - Aprovação de Cadastros</h2>
+            <p class="text-xs text-amber-700 mb-4">Usuários aguardando liberação:</p>
+            <div id="lista-pendentes" class="space-y-2">
+                <p class="text-xs text-slate-500">Carregando pendentes...</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-1">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 h-full">
+                    <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center"><span class="w-2 h-6 bg-blue-500 rounded mr-2"></span>Evolução</h2>
+                    <div id="container-progresso" class="space-y-6"></div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+                        <h2 class="text-xl font-bold text-gray-800 flex items-center"><span class="w-2 h-6 bg-green-500 rounded mr-2"></span>Histórico de Aulas</h2>
+                        
+                        <div class="flex items-center gap-4 flex-wrap">
+                            <label class="flex items-center cursor-pointer select-none text-sm">
+                                <span class="mr-3 font-bold text-slate-600">Apenas Pendentes</span>
+                                <div class="relative">
+                                    <input type="checkbox" id="check-pendentes" onchange="renderizarDados()" class="sr-only">
+                                    <div class="block bg-gray-200 w-10 h-6 rounded-full border border-gray-300"></div>
+                                    <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full shadow"></div>
+                                </div>
+                            </label>
+
+                            <div class="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
+                                <span class="text-slate-400 text-xs font-bold mr-1">R$</span>
+                                <input type="number" id="valor-hora" placeholder="Valor/h" min="0" step="0.01" class="bg-transparent text-xs font-bold text-slate-700 w-16 outline-none border-none p-0 focus:ring-0" />
+                            </div>
+
+                            <button onclick="gerarPDF()" class="bg-red-500 hover:bg-red-600 text-white font-bold text-xs uppercase tracking-wider px-4 py-2 rounded-xl shadow-sm transition-all flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                PDF Pendentes
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-slate-600">
+                            <thead>
+                                <tr class="text-slate-400 uppercase text-[10px] tracking-widest border-b border-slate-100">
+                                    <th class="py-4 px-2">Data</th>
+                                    <th class="py-4 px-2">Conteúdo</th>
+                                    <th class="py-4 px-2 text-center">Horas</th>
+                                    <th class="py-4 px-2 text-right">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabela-aulas" class="divide-y divide-slate-50"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // CONFIGURAÇÃO DO SUPABASE (Insira seus dados do projeto aqui)
+        const SUPABASE_URL = 'https://zzetieibsvxxvtvdikmd.supabase.co/rest/v1/';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp6ZXRpZWlic3Z4eHZ0dmRpa21kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjcxNjAsImV4cCI6MjEwODIwMzE2MH0.SA7WqXj4IASkX3c-XjCOLJgNnyXeY5LglIAYZ3aP6_A';
+        
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let dadosGlobais = [];
+        let usuarioLogado = null;
+
+        // Verificar sessão ativa ao carregar a página
+        window.addEventListener('DOMContentLoaded', async () => {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session) {
+                await carregarPerfilEIniciar(session.user);
+            }
+        });
+
+        function alternarTelaAuth(tipo) {
+            if (tipo === 'cadastro') {
+                document.getElementById('form-login').classList.add('hidden');
+                document.getElementById('form-cadastro').classList.remove('hidden');
+                document.getElementById('auth-subtitle').innerText = 'Crie sua conta para solicitar acesso';
+            } else {
+                document.getElementById('form-cadastro').classList.add('hidden');
+                document.getElementById('form-login').classList.remove('hidden');
+                document.getElementById('auth-subtitle').innerText = 'Faça login para acessar sua base';
+            }
+            document.getElementById('auth-mensagem').innerText = '';
+        }
+
+        async function fazerLogin() {
+            const email = document.getElementById('login-email').value.trim();
+            const pass = document.getElementById('login-pass').value.trim();
+            const msg = document.getElementById('auth-mensagem');
+
+            if (!email || !pass) {
+                msg.className = "mt-4 text-center text-xs font-bold text-red-600";
+                msg.innerText = "Preencha todos os campos.";
+                return;
+            }
+
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
+            
+            if (error) {
+                msg.className = "mt-4 text-center text-xs font-bold text-red-600";
+                msg.innerText = "Erro ao entrar: E-mail ou senha incorretos.";
+                return;
+            }
+
+            await carregarPerfilEIniciar(data.user);
+        }
+
+        async function solicitarCadastro() {
+            const email = document.getElementById('cad-email').value.trim();
+            const pass = document.getElementById('cad-pass').value.trim();
+            const aluno = document.getElementById('cad-aluno').value.trim();
+            const msg = document.getElementById('auth-mensagem');
+
+            if (!email || !pass || !aluno) {
+                msg.className = "mt-4 text-center text-xs font-bold text-red-600";
+                msg.innerText = "Preencha todos os campos.";
+                return;
+            }
+
+            const { data, error } = await supabaseClient.auth.signUp({
+                email,
+                password: pass,
+                options: {
+                    data: {
+                        aluno_permitido: aluno,
+                        status: 'Pendente',
+                        perfil: 'comum'
+                    }
+                }
+            });
+
+            if (error) {
+                msg.className = "mt-4 text-center text-xs font-bold text-red-600";
+                msg.innerText = "Erro no cadastro: " + error.message;
+                return;
+            }
+
+            msg.className = "mt-4 text-center text-xs font-bold text-green-600";
+            msg.innerText = "Solicitação enviada com sucesso! Aguarde a aprovação.";
+            setTimeout(() => alternarTelaAuth('login'), 3000);
+        }
+
+        async function carregarPerfilEIniciar(user) {
+            // Buscar dados na tabela profiles
+            const { data: profile, error } = await supabaseClient
+                .from('profiles')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+            if (error || !profile) {
+                alert("Erro ao carregar perfil do usuário.");
+                fazerLogout();
+                return;
+            }
+
+            if (profile.status !== 'Aprovado') {
+                alert("Seu cadastro ainda aguarda validação do administrador.");
+                await supabaseClient.auth.signOut();
+                return;
+            }
+
+            usuarioLogado = profile;
+            document.getElementById('auth-container').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+
+            if (usuarioLogado.perfil === 'admin') {
+                document.getElementById('painel-admin').classList.remove('hidden');
+                carregarUsuariosPendentes();
+            }
+
+            await carregarDadosDoBanco();
+        }
+
+        async function fazerLogout() {
+            await supabaseClient.auth.signOut();
+            usuarioLogado = null;
+            document.getElementById('app-container').classList.add('hidden');
+            document.getElementById('auth-container').classList.remove('hidden');
+            document.getElementById('login-email').value = '';
+            document.getElementById('login-pass').value = '';
+        }
+
+        async function carregarUsuariosPendentes() {
+            const { data, error } = await supabaseClient
+                .from('profiles')
+                .select('*')
+                .eq('status', 'Pendente');
+
+            const lista = document.getElementById('lista-pendentes');
+            if (error || !data || data.length === 0) {
+                lista.innerHTML = '<p class="text-xs text-slate-500">Nenhum cadastro pendente no momento.</p>';
+                return;
+            }
+
+            lista.innerHTML = data.map(p => `
+                <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-amber-100">
+                    <div>
+                        <p class="text-xs font-bold text-slate-700">${p.email}</p>
+                        <p class="text-[10px] text-slate-500">Aluno vinculado: <strong>${p.aluno_permitido}</strong></p>
+                    </div>
+                    <button onclick="aprovarUsuario('${p.id}')" class="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Aprovar</button>
+                </div>
+            `).join('');
+        }
+
+        async function aprovarUsuario(idUsuario) {
+            const { error } = await supabaseClient
+                .from('profiles')
+                .update({ status: 'Aprovado' })
+                .eq('id', idUsuario);
+
+            if (error) {
+                alert("Erro ao aprovar usuário.");
+                return;
+            }
+            alert("Usuário aprovado com sucesso!");
+            carregarUsuariosPendentes();
+        }
+
+        async function carregarDadosDoBanco() {
+            try {
+                // O Supabase aplica o RLS automaticamente de acordo com quem está logado
+                const { data, error } = await supabaseClient
+                    .from('dados_alunos')
+                    .select('*');
+
+                if (error) throw error;
+
+                dadosGlobais = data || [];
+                popularMenuAlunos();
+                renderizarDados();
+            } catch (e) {
+                console.error("Erro ao carregar dados:", e);
+                document.getElementById('select-aluno').innerHTML = '<option>Erro ao carregar dados</option>';
+            }
+        }
+
+        function popularMenuAlunos() {
+            const select = document.getElementById('select-aluno');
+            let alunosUnicos = [...new Set(dadosGlobais.map(d => d.aluno))].sort();
+
+            if (usuarioLogado.perfil !== 'admin') {
+                alunosUnicos = alunosUnicos.filter(a => a.toLowerCase() === usuarioLogado.aluno_permitido.toLowerCase());
+                document.getElementById('info-usuario-logado').innerText = `Base restrita ao aluno: ${usuarioLogado.aluno_permitido}`;
+            } else {
+                document.getElementById('info-usuario-logado').innerText = `Painel do Administrador (Acesso Total)`;
+            }
+
+            if (alunosUnicos.length === 0) {
+                select.innerHTML = '<option>Nenhum aluno encontrado</option>';
+                return;
+            }
+
+            select.innerHTML = alunosUnicos.map(nome => `<option value="${nome}">${nome}</option>`).join('');
+            select.value = alunosUnicos[0];
+        }
+
+        function renderizarDados() {
+            const selecionado = document.getElementById('select-aluno').value;
+            const apenasPendentes = document.getElementById('check-pendentes').checked;
+            const cProgresso = document.getElementById('container-progresso');
+            const tAulas = document.getElementById('tabela-aulas');
+
+            cProgresso.innerHTML = ''; 
+            tAulas.innerHTML = '';
+            
+            const dadosFiltrados = dadosGlobais.filter(d => d.aluno === selecionado);
+
+            dadosFiltrados.forEach(i => {
+                if (i.tipo === 'Progresso') {
+                    const p = parseInt(i.valor) || 0;
+                    cProgresso.innerHTML += `<div>
+                        <div class="flex justify-between text-xs mb-2 font-bold text-slate-700"><span>${i.conteudo}</span><span>${p}%</span></div>
+                        <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                            <div class="bg-blue-500 h-2.5 rounded-full progress-bar" style="width:${p}%"></div>
+                        </div>
+                    </div>`;
+                } else if (i.tipo === 'Aula') {
+                    if (apenasPendentes && i.pago) return;
+
+                    tAulas.innerHTML += `<tr class="hover:bg-slate-50 transition-colors">
+                        <td class="py-4 px-2 text-slate-400 font-medium">${i.valor}</td>
+                        <td class="py-4 px-2 font-semibold text-slate-800">${i.conteudo}</td>
+                        <td class="py-4 px-2 text-center font-bold text-slate-500">${i.extra}h</td>
+                        <td class="py-4 px-2 text-right">
+                            <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${i.pago ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                                ${i.pago ? 'Pago' : 'Pendente'}
+                            </span>
+                        </td>
+                    </tr>`;
+                }
+            });
+        }
+
+        function gerarPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const alunoSelecionado = document.getElementById('select-aluno').value;
+            if (!alunoSelecionado) return alert("Selecione um aluno primeiro.");
+
+            const valorHoraInput = document.getElementById('valor-hora').value;
+            const valorHora = parseFloat(valorHoraInput) || 0;
+            const aulasPendentes = dadosGlobais.filter(d => d.aluno === alunoSelecionado && d.tipo === 'Aula' && !d.pago);
+
+            if (aulasPendentes.length === 0) {
+                alert(`Não há aulas pendentes para o aluno ${alunoSelecionado}.`);
+                return;
+            }
+
+            const totalHoras = aulasPendentes.reduce((acc, curr) => acc + (parseFloat(curr.extra) || 0), 0);
+            const valorTotalDevido = totalHoras * valorHora;
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(18);
+            doc.text("Relatório de Aulas Pendentes", 14, 20);
+            
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Aluno: ${alunoSelecionado}`, 14, 28);
+            doc.text(`Data de Emissão: ${new Date().toLocaleDateString('pt-BR')}`, 14, 34);
+            
+            if (valorHora > 0) {
+                doc.text(`Valor da Hora-Aula: R$ ${valorHora.toFixed(2).replace('.', ',')}`, 14, 40);
+            }
+
+            const tableRows = aulasPendentes.map(aula => [
+                aula.valor, 
+                aula.conteudo,
+                `${aula.extra}h`,
+                "Pendente"
+            ]);
+
+            doc.autoTable({
+                startY: valorHora > 0 ? 46 : 42,
+                head: [['Data', 'Conteúdo', 'Horas', 'Status']],
+                body: tableRows,
+                headStyles: { fillColor: [239, 68, 68] }, 
+                theme: 'striped',
+                margin: { left: 14, right: 14 }
+            });
+
+            let finalY = doc.lastAutoTable.finalY + 12;
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(11);
+            doc.text(`Total de Horas Pendentes: ${totalHoras}h`, 14, finalY);
+            
+            if (valorHora > 0) {
+                finalY += 6;
+                doc.setFontSize(13);
+                doc.setTextColor(185, 28, 28); 
+                doc.text(`Valor Total Pendente: R$ ${valorTotalDevido.toFixed(2).replace('.', ',')}`, 14, finalY);
+            }
+
+            doc.save(`Relatorio_Financeiro_${alunoSelecionado.replace(/\s+/g, '_')}.pdf`);
+        }
+    </script>
+</body>
+</html>
