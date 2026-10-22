@@ -25,7 +25,6 @@
             <p id="auth-subtitle" class="text-slate-500 text-sm font-medium mt-1">Faça login para acessar sua base</p>
         </div>
 
-        <!-- Formulário de Login -->
         <div id="form-login" class="space-y-4">
             <div>
                 <label class="block text-xs font-bold text-slate-600 uppercase mb-1">E-mail</label>
@@ -41,7 +40,6 @@
             </p>
         </div>
 
-        <!-- Formulário de Cadastro -->
         <div id="form-cadastro" class="space-y-4 hidden">
             <div>
                 <label class="block text-xs font-bold text-slate-600 uppercase mb-1">E-mail</label>
@@ -50,10 +48,6 @@
             <div>
                 <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Senha (Mínimo 6 dígitos)</label>
                 <input type="password" id="cad-pass" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" placeholder="••••••••">
-            </div>
-            <div>
-                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Aluno Vinculado (Sua Base)</label>
-                <input type="text" id="cad-aluno" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" placeholder="Nome exato do aluno">
             </div>
             <button onclick="solicitarCadastro()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold text-sm py-3 rounded-xl transition-all shadow-sm">Enviar Solicitação</button>
             <p class="text-center text-xs text-slate-500 mt-4">
@@ -71,29 +65,42 @@
                 <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">Portal de Reforço</h1>
                 <p id="info-usuario-logado" class="text-slate-500 text-sm font-medium">Gestão Pedagógica e Financeira</p>
             </div>
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-4 flex-wrap">
+                <!-- Seletor de Alunos -->
                 <div class="flex items-center bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
                     <label class="mr-3 font-semibold text-slate-600 uppercase text-[10px] tracking-wider">Aluno:</label>
                     <select id="select-aluno" onchange="renderizarDados()" class="bg-transparent border-none focus:ring-0 text-blue-600 font-bold cursor-pointer text-lg outline-none">
-                        <option value="">Carregando...</option>
+                        <option value="">Nenhum aluno cadastrado</option>
                     </select>
                 </div>
-                <button onclick="fazerLogout()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs uppercase px-3 py-2 rounded-xl transition-all">Sair</button>
+                <!-- Botão Novo Aluno -->
+                <button onclick="abrirModalAluno()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase px-4 py-2.5 rounded-xl transition-all shadow-sm">+ Novo Aluno</button>
+                <button onclick="fazerLogout()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs uppercase px-3 py-2.5 rounded-xl transition-all">Sair</button>
+            </div>
+        </div>
+
+        <!-- MODAL / CAMPO PARA CADASTRAR NOVO ALUNO -->
+        <div id="modal-aluno" class="hidden mb-8 bg-blue-50 p-6 rounded-2xl border border-blue-200">
+            <h2 class="text-lg font-bold text-blue-900 mb-2">Cadastrar Novo Aluno</h2>
+            <p class="text-xs text-blue-700 mb-4">Adicione um novo aluno para gerenciar a base dele separadamente:</p>
+            <div class="flex gap-3">
+                <input type="text" id="novo-nome-aluno" placeholder="Nome Completo do Aluno" class="flex-1 bg-white border border-blue-200 rounded-xl p-2.5 text-xs outline-none">
+                <button onclick="salvarNovoAluno()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase px-5 py-2.5 rounded-xl transition-all">Salvar Aluno</button>
+                <button onclick="fecharModalAluno()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs uppercase px-4 py-2.5 rounded-xl">Cancelar</button>
             </div>
         </div>
 
         <!-- PAINEL DO ADMINISTRADOR -->
         <div id="painel-admin" class="hidden mb-8 bg-amber-50 p-6 rounded-2xl border border-amber-200">
             <h2 class="text-lg font-bold text-amber-800 mb-2">Painel do Administrador - Aprovação de Cadastros</h2>
-            <p class="text-xs text-amber-700 mb-4">Usuários aguardando liberação:</p>
-            <div id="lista-pendentes" class="space-y-2">
+            <div id="lista-pendentes" class="space-y-2 mt-3">
                 <p class="text-xs text-slate-500">Carregando pendentes...</p>
             </div>
         </div>
 
-        <!-- PAINEL DE NOVO CADASTRO DE DADOS -->
+        <!-- PAINEL DE NOVO REGISTRO (AULA OU PROGRESSO) -->
         <div class="mb-8 bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-            <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center"><span class="w-2 h-5 bg-indigo-500 rounded mr-2"></span>Adicionar Novo Registro (Aula ou Progresso)</h2>
+            <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center"><span class="w-2 h-5 bg-indigo-500 rounded mr-2"></span>Adicionar Registro para o Aluno Selecionado</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3">
                 <div>
                     <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Tipo</label>
@@ -177,11 +184,12 @@
 
     <script>
         const SUPABASE_URL = 'https://zzetieibsvxxvtvdikmd.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp6ZXRpZWlic3Z4eHZ0dmRpa21kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjcxNjAsImV4cCI6MjEwODIwMzE2MH0.SA7WqXj4IASkX3c-XjCOLJgNnyXeY5LglIAYZ3aP6_A';        
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp6ZXRpZWlic3Z4eHZ0dmRpa21kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjcxNjAsImV4cCI6MjEwODIwMzE2MH0.SA7WqXj4IASkX3c-XjCOLJgNnyXeY5LglIAYZ3aP6_A';
         
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let dadosGlobais = [];
+        let listaAlunos = [];
         let usuarioLogado = null;
 
         window.addEventListener('DOMContentLoaded', async () => {
@@ -216,7 +224,6 @@
             }
 
             const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
-            
             if (error) {
                 msg.className = "mt-4 text-center text-xs font-bold text-red-600";
                 msg.innerText = "Erro ao entrar: E-mail ou senha incorretos.";
@@ -229,10 +236,9 @@
         async function solicitarCadastro() {
             const email = document.getElementById('cad-email').value.trim();
             const pass = document.getElementById('cad-pass').value.trim();
-            const aluno = document.getElementById('cad-aluno').value.trim();
             const msg = document.getElementById('auth-mensagem');
 
-            if (!email || !pass || !aluno) {
+            if (!email || !pass) {
                 msg.className = "mt-4 text-center text-xs font-bold text-red-600";
                 msg.innerText = "Preencha todos os campos.";
                 return;
@@ -242,11 +248,7 @@
                 email,
                 password: pass,
                 options: {
-                    data: {
-                        aluno_permitido: aluno,
-                        status: 'Pendente',
-                        perfil: 'comum'
-                    }
+                    data: { status: 'Pendente', perfil: 'comum' }
                 }
             });
 
@@ -302,48 +304,86 @@
         }
 
         async function carregarUsuariosPendentes() {
-            const { data, error } = await supabaseClient
-                .from('profiles')
-                .select('*')
-                .eq('status', 'Pendente');
-
+            const { data } = await supabaseClient.from('profiles').select('*').eq('status', 'Pendente');
             const lista = document.getElementById('lista-pendentes');
-            if (error || !data || data.length === 0) {
+            if (!data || data.length === 0) {
                 lista.innerHTML = '<p class="text-xs text-slate-500">Nenhum cadastro pendente no momento.</p>';
                 return;
             }
-
             lista.innerHTML = data.map(p => `
                 <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-amber-100">
-                    <div>
-                        <p class="text-xs font-bold text-slate-700">${p.email}</p>
-                        <p class="text-[10px] text-slate-500">Aluno vinculado: <strong>${p.aluno_permitido}</strong></p>
-                    </div>
+                    <p class="text-xs font-bold text-slate-700">${p.email}</p>
                     <button onclick="aprovarUsuario('${p.id}')" class="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Aprovar</button>
                 </div>
             `).join('');
         }
 
         async function aprovarUsuario(idUsuario) {
-            const { error } = await supabaseClient
-                .from('profiles')
-                .update({ status: 'Aprovado' })
-                .eq('id', idUsuario);
-
-            if (error) {
-                alert("Erro ao aprovar usuário.");
-                return;
-            }
+            await supabaseClient.from('profiles').update({ status: 'Aprovado' }).eq('id', idUsuario);
             alert("Usuário aprovado com sucesso!");
             carregarUsuariosPendentes();
         }
 
+        function abrirModalAluno() {
+            document.getElementById('modal-aluno').classList.remove('hidden');
+        }
+
+        function fecharModalAluno() {
+            document.getElementById('modal-aluno').classList.add('hidden');
+            document.getElementById('novo-nome-aluno').value = '';
+        }
+
+        async function salvarNovoAluno() {
+            const nome = document.getElementById('novo-nome-aluno').value.trim();
+            if (!nome) return alert("Digite o nome do aluno.");
+
+            const { error } = await supabaseClient.from('alunos').insert([{ nome: nome }]);
+            if (error) {
+                alert("Erro ao cadastrar aluno: " + error.message);
+                return;
+            }
+
+            fecharModalAluno();
+            await carregarDadosDoBanco();
+            alert("Aluno cadastrado com sucesso!");
+        }
+
+        async function carregarDadosDoBanco() {
+            try {
+                // Carregar Alunos
+                const resAlunos = await supabaseClient.from('alunos').select('*');
+                listaAlunos = resAlunos.data || [];
+
+                // Carregar Aulas e Dados
+                const resDados = await supabaseClient.from('dados_alunos').select('*');
+                dadosGlobais = resDados.data || [];
+
+                popularMenuAlunos();
+                renderizarDados();
+            } catch (e) {
+                console.error("Erro ao carregar dados:", e);
+            }
+        }
+
+        function popularMenuAlunos() {
+            const select = document.getElementById('select-aluno');
+            if (listaAlunos.length === 0) {
+                select.innerHTML = '<option value="">Nenhum aluno cadastrado</option>';
+                return;
+            }
+
+            const valorAtual = select.value;
+            select.innerHTML = listaAlunos.map(a => `<option value="${a.nome}" ${a.nome === valorAtual ? 'selected' : ''}>${a.nome}</option>`).join('');
+        }
+
         async function adicionarRegistro() {
+            const alunoSelecionado = document.getElementById('select-aluno').value;
+            if (!alunoSelecionado) return alert("Cadastre e selecione um aluno primeiro.");
+
             const tipo = document.getElementById('novo-tipo').value;
             const conteudo = document.getElementById('novo-conteudo').value.trim();
             const valor = document.getElementById('novo-valor').value.trim();
             const extra = document.getElementById('novo-extra').value.trim();
-            const alunoSelecionado = document.getElementById('select-aluno').value;
 
             if (!conteudo || !valor) {
                 alert("Preencha os campos obrigatórios (Conteúdo e Valor/Data).");
@@ -372,48 +412,6 @@
 
             await carregarDadosDoBanco();
             alert("Registro cadastrado com sucesso!");
-        }
-
-        async function carregarDadosDoBanco() {
-            try {
-                const { data, error } = await supabaseClient
-                    .from('dados_alunos')
-                    .select('*');
-
-                if (error) throw error;
-
-                dadosGlobais = data || [];
-                popularMenuAlunos();
-                renderizarDados();
-            } catch (e) {
-                console.error("Erro ao carregar dados:", e);
-                document.getElementById('select-aluno').innerHTML = '<option>Erro ao carregar dados</option>';
-            }
-        }
-
-        function popularMenuAlunos() {
-            const select = document.getElementById('select-aluno');
-            let alunosUnicos = [...new Set(dadosGlobais.map(d => d.aluno))].sort();
-
-            if (usuarioLogado.perfil !== 'admin') {
-                alunosUnicos = alunosUnicos.filter(a => a.toLowerCase() === usuarioLogado.aluno_permitido.toLowerCase());
-                document.getElementById('info-usuario-logado').innerText = `Base restrita ao aluno: ${usuarioLogado.aluno_permitido}`;
-            } else {
-                document.getElementById('info-usuario-logado').innerText = `Painel do Administrador (Acesso Total)`;
-            }
-
-            if (alunosUnicos.length === 0) {
-                // Se não houver dados, exibe o aluno vinculado ao perfil para permitir cadastros novos
-                if (usuarioLogado.perfil !== 'admin' && usuarioLogado.aluno_permitido) {
-                    alunosUnicos = [usuarioLogado.aluno_permitido];
-                } else {
-                    select.innerHTML = '<option>Nenhum aluno encontrado</option>';
-                    return;
-                }
-            }
-
-            select.innerHTML = alunosUnicos.map(nome => `<option value="${nome}">${nome}</option>`).join('');
-            select.value = alunosUnicos[0];
         }
 
         function renderizarDados() {
