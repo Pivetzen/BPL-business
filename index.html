@@ -66,27 +66,55 @@
                 <p id="info-usuario-logado" class="text-slate-500 text-sm font-medium">Gestão Pedagógica e Financeira</p>
             </div>
             <div class="flex items-center gap-4 flex-wrap">
-                <!-- Seletor de Alunos -->
                 <div class="flex items-center bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
                     <label class="mr-3 font-semibold text-slate-600 uppercase text-[10px] tracking-wider">Aluno:</label>
                     <select id="select-aluno" onchange="renderizarDados()" class="bg-transparent border-none focus:ring-0 text-blue-600 font-bold cursor-pointer text-lg outline-none">
                         <option value="">Nenhum aluno cadastrado</option>
                     </select>
                 </div>
-                <!-- Botão Novo Aluno -->
                 <button onclick="abrirModalAluno()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase px-4 py-2.5 rounded-xl transition-all shadow-sm">+ Novo Aluno</button>
                 <button onclick="fazerLogout()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs uppercase px-3 py-2.5 rounded-xl transition-all">Sair</button>
             </div>
         </div>
 
-        <!-- MODAL / CAMPO PARA CADASTRAR NOVO ALUNO -->
+        <!-- MODAL NOVO ALUNO -->
         <div id="modal-aluno" class="hidden mb-8 bg-blue-50 p-6 rounded-2xl border border-blue-200">
             <h2 class="text-lg font-bold text-blue-900 mb-2">Cadastrar Novo Aluno</h2>
-            <p class="text-xs text-blue-700 mb-4">Adicione um novo aluno para gerenciar a base dele separadamente:</p>
             <div class="flex gap-3">
                 <input type="text" id="novo-nome-aluno" placeholder="Nome Completo do Aluno" class="flex-1 bg-white border border-blue-200 rounded-xl p-2.5 text-xs outline-none">
                 <button onclick="salvarNovoAluno()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase px-5 py-2.5 rounded-xl transition-all">Salvar Aluno</button>
                 <button onclick="fecharModalAluno()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs uppercase px-4 py-2.5 rounded-xl">Cancelar</button>
+            </div>
+        </div>
+
+        <!-- MODAL DE PAGAMENTO -->
+        <div id="modal-pagamento" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white p-6 rounded-2xl max-w-md w-full shadow-xl border border-slate-200">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Registrar Pagamento da Aula</h2>
+                <input type="hidden" id="pagamento-id-aula">
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Data do Pagamento</label>
+                        <input type="text" id="pagamento-data" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs outline-none" placeholder="Ex: 11/10/2026">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Forma de Pagamento</label>
+                        <select id="pagamento-forma" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs outline-none">
+                            <option value="Pix">Pix</option>
+                            <option value="Cartão">Cartão</option>
+                            <option value="Dinheiro">Dinheiro</option>
+                            <option value="Transferência">Transferência</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Valor Pago (R$)</label>
+                        <input type="number" step="0.01" id="pagamento-valor" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs outline-none" placeholder="Ex: 60.00">
+                    </div>
+                </div>
+                <div class="flex gap-3 mt-6">
+                    <button onclick="salvarPagamento()" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold text-xs uppercase py-3 rounded-xl transition-all">Confirmar Pagamento</button>
+                    <button onclick="fecharModalPagamento()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs uppercase px-4 py-3 rounded-xl">Cancelar</button>
+                </div>
             </div>
         </div>
 
@@ -98,7 +126,7 @@
             </div>
         </div>
 
-        <!-- PAINEL DE NOVO REGISTRO (AULA OU PROGRESSO) -->
+        <!-- PAINEL DE NOVO REGISTRO -->
         <div class="mb-8 bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
             <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center"><span class="w-2 h-5 bg-indigo-500 rounded mr-2"></span>Adicionar Registro para o Aluno Selecionado</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3">
@@ -350,11 +378,9 @@
 
         async function carregarDadosDoBanco() {
             try {
-                // Carregar Alunos
                 const resAlunos = await supabaseClient.from('alunos').select('*');
                 listaAlunos = resAlunos.data || [];
 
-                // Carregar Aulas e Dados
                 const resDados = await supabaseClient.from('dados_alunos').select('*');
                 dadosGlobais = resDados.data || [];
 
@@ -398,6 +424,7 @@
                     valor: valor,
                     extra: extra || '0',
                     pago: false,
+                    status_aula: 'Pendente',
                     aluno: alunoSelecionado
                 }]);
 
@@ -412,6 +439,75 @@
 
             await carregarDadosDoBanco();
             alert("Registro cadastrado com sucesso!");
+        }
+
+        // Funções para gerenciar o clique no status da aula
+        async function alterarStatusAula(id, statusAtual) {
+            if (statusAtual === 'Pendente') {
+                // Passa para Pago -> Abre Modal de Pagamento
+                document.getElementById('pagamento-id-aula').value = id;
+                document.getElementById('pagamento-data').value = new Date().toLocaleDateString('pt-BR');
+                document.getElementById('pagamento-valor').value = '';
+                document.getElementById('modal-pagamento').classList.remove('hidden');
+            } else if (statusAtual === 'Pago') {
+                // Passa para Cancelada
+                if (confirm("Deseja alterar o status desta aula para CANCELADA? O valor não será cobrado.")) {
+                    await atualizarStatusNoBanco(id, 'Cancelada', false);
+                }
+            } else {
+                // De Cancelada volta para Pendente
+                await atualizarStatusNoBanco(id, 'Pendente', false);
+            }
+        }
+
+        function fecharModalPagamento() {
+            document.getElementById('modal-pagamento').classList.add('hidden');
+        }
+
+        async function salvarPagamento() {
+            const id = document.getElementById('pagamento-id-aula').value;
+            const dataPagamento = document.getElementById('pagamento-data').value;
+            const formaPagamento = document.getElementById('pagamento-forma').value;
+            const valorPago = document.getElementById('pagamento-valor').value;
+
+            const { error } = await supabaseClient
+                .from('dados_alunos')
+                .update({ 
+                    status_aula: 'Pago', 
+                    pago: true,
+                    data_pagamento: dataPagamento,
+                    forma_pagamento: formaPagamento,
+                    valor_pago: valorPago
+                })
+                .eq('id', id);
+
+            if (error) {
+                alert("Erro ao salvar pagamento: " + error.message);
+                return;
+            }
+
+            fecharModalPagamento();
+            await carregarDadosDoBanco();
+            alert("Pagamento registrado com sucesso!");
+        }
+
+        async function atualizarStatusNoBanco(id, novoStatus, ePago) {
+            const { error } = await supabaseClient
+                .from('dados_alunos')
+                .update({ 
+                    status_aula: novoStatus, 
+                    pago: ePago,
+                    data_pagamento: null,
+                    forma_pagamento: null,
+                    valor_pago: null
+                })
+                .eq('id', id);
+
+            if (error) {
+                alert("Erro ao atualizar status: " + error.message);
+                return;
+            }
+            await carregarDadosDoBanco();
         }
 
         function renderizarDados() {
@@ -435,16 +531,21 @@
                         </div>
                     </div>`;
                 } else if (i.tipo === 'Aula') {
-                    if (apenasPendentes && i.pago) return;
+                    const status = i.status_aula || (i.pago ? 'Pago' : 'Pendente');
+                    if (apenasPendentes && status !== 'Pendente') return;
+
+                    let badgeClass = 'bg-amber-100 text-amber-700';
+                    if (status === 'Pago') badgeClass = 'bg-green-100 text-green-700';
+                    if (status === 'Cancelada') badgeClass = 'bg-slate-200 text-slate-600 line-through';
 
                     tAulas.innerHTML += `<tr class="hover:bg-slate-50 transition-colors">
                         <td class="py-4 px-2 text-slate-400 font-medium">${i.valor}</td>
                         <td class="py-4 px-2 font-semibold text-slate-800">${i.conteudo}</td>
                         <td class="py-4 px-2 text-center font-bold text-slate-500">${i.extra}h</td>
                         <td class="py-4 px-2 text-right">
-                            <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${i.pago ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-                                ${i.pago ? 'Pago' : 'Pendente'}
-                            </span>
+                            <button onclick="alterarStatusAula('${i.id}', '${status}')" class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider cursor-pointer hover:opacity-80 transition-opacity ${badgeClass}" title="Clique para alterar o status">
+                                ${status}
+                            </button>
                         </td>
                     </tr>`;
                 }
@@ -460,7 +561,9 @@
 
             const valorHoraInput = document.getElementById('valor-hora').value;
             const valorHora = parseFloat(valorHoraInput) || 0;
-            const aulasPendentes = dadosGlobais.filter(d => d.aluno === alunoSelecionado && d.tipo === 'Aula' && !d.pago);
+            
+            // Apenas aulas com status Pendente entram no relatório de cobrança
+            const aulasPendentes = dadosGlobais.filter(d => d.aluno === alunoSelecionado && d.tipo === 'Aula' && (d.status_aula === 'Pendente' || (!d.status_aula && !d.pago)));
 
             if (aulasPendentes.length === 0) {
                 alert(`Não há aulas pendentes para o aluno ${alunoSelecionado}.`);
